@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { exec } from 'child_process'
+import { promisify } from 'util'
 
-const CLAWDBOT_URL = process.env.CLAWDBOT_GATEWAY_URL || 'http://localhost:3457'
-const CLAWDBOT_TOKEN = process.env.CLAWDBOT_API_TOKEN || ''
+const execAsync = promisify(exec)
+
+// Session ID for dashboard conversations
+const DASHBOARD_SESSION = 'dashboard-web'
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,33 +15,44 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 })
     }
 
-    // Send to Clawdbot Gateway
-    const res = await fetch(`${CLAWDBOT_URL}/api/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CLAWDBOT_TOKEN}`,
-      },
-      body: JSON.stringify({
-        message,
-        session: 'dashboard',
-      }),
-    })
+    // Use clawdbot CLI to send message and get response
+    const escapedMessage = message.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
+    
+    const { stdout, stderr } = await execAsync(
+      `clawdbot agent --session-id "${DASHBOARD_SESSION}" --message "${escapedMessage}" --json --timeout 120`,
+      { 
+        timeout: 130000,
+        maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large responses
+      }
+    )
 
-    if (!res.ok) {
-      throw new Error(`Clawdbot error: ${res.status}`)
+    try {
+      const result = JSON.parse(stdout)
+      return NextResponse.json({ 
+        response: result.response || result.message || result.content || 'No response',
+      })
+    } catch (parseError) {
+      // If not JSON, return stdout directly
+      return NextResponse.json({ 
+        response: stdout.trim() || 'No response',
+      })
     }
-
-    const data = await res.json()
+  } catch (error: any) {
+    console.error('Chat error:', error)
+    
+    // Try to extract response from error output
+    if (error.stdout) {
+      try {
+        const result = JSON.parse(error.stdout)
+        if (result.response) {
+          return NextResponse.json({ response: result.response })
+        }
+      } catch {}
+    }
     
     return NextResponse.json({ 
-      response: data.response || data.message || 'No response',
-    })
-  } catch (error) {
-    console.error('Chat error:', error)
-    return NextResponse.json({ 
-      error: 'Failed to connect to Hakeem',
-      response: 'I couldn\'t connect to the backend. Make sure Clawdbot is running.'
+      error: 'Failed to get response',
+      response: error.message || 'Something went wrong. Is Clawdbot running?'
     }, { status: 500 })
   }
 }
