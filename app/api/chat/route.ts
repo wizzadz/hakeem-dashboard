@@ -4,8 +4,8 @@ import { promisify } from 'util'
 
 const execAsync = promisify(exec)
 
-// Session ID for dashboard conversations
-const DASHBOARD_SESSION = 'dashboard-web'
+// Session ID for dashboard conversations (separate from WhatsApp)
+const DASHBOARD_SESSION = 'hakeem-dashboard-chat'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const escapedMessage = message.replace(/"/g, '\\"').replace(/`/g, '\\`').replace(/\$/g, '\\$')
     
     const { stdout, stderr } = await execAsync(
-      `clawdbot agent --session-id "${DASHBOARD_SESSION}" --message "${escapedMessage}" --json --timeout 120`,
+      `clawdbot agent --session-id "${DASHBOARD_SESSION}" --message "${escapedMessage}" --local --timeout 120`,
       { 
         timeout: 130000,
         maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large responses
