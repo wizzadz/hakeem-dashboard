@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Send, Bot, User, Activity, GitCommit, CheckSquare, Loader2 } from 'lucide-react'
+import { Send, Bot, User, Activity, GitCommit, CheckSquare, Loader2, LogOut } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import { useRouter } from 'next/navigation'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -40,6 +41,13 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [progress, setProgress] = useState(0)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
+
+  const handleLogout = async () => {
+    await fetch('/api/auth', { method: 'DELETE' })
+    router.push('/login')
+    router.refresh()
+  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -243,8 +251,15 @@ export default function Dashboard() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <div className="h-14 border-b border-[var(--border)] flex items-center px-6">
+        <div className="h-14 border-b border-[var(--border)] flex items-center justify-between px-6">
           <h2 className="font-semibold">Chat with Hakeem</h2>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            <LogOut size={16} />
+            Logout
+          </button>
         </div>
         
         {/* Messages */}
